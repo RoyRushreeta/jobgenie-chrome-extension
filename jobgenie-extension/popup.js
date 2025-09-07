@@ -397,20 +397,22 @@ document.addEventListener('DOMContentLoaded', function() {
       Description: ${jobData.description}
       Job ID: ${jobData.jobId || 'N/A'}
 
-      Please respond in JSON format with CONCISE but COMPLETE outputs:
+      Please respond in JSON format with CONCISE and CLEAR outputs:
       {
         "fitScore": <number 0-100>,
-        "reasoning": "<2-3 complete sentences explaining the fit score, max 250 characters>",
-        "strengths": ["<concise strength 1>", "<concise strength 2>", "<concise strength 3>"],
-        "gaps": ["<concise gap 1>", "<concise gap 2>", "<concise gap 3>"],
-        "recommendations": ["<actionable advice 1>", "<actionable advice 2>"]
+        "reasoning": "<2-3 complete sentences explaining the fit score, max 300 characters>",
+        "strengths": ["<skill/technology name>", "<skill/technology name>", "<skill/technology name>", "<skill/technology name>"],
+        "gaps": ["<missing skill/technology>", "<missing skill/technology>", "<missing skill/technology>"],
+        "recommendations": ["<actionable advice in one sentence>", "<actionable advice in one sentence>"]
       }
       
-      IMPORTANT: 
-      - Keep reasoning under 250 characters but ensure complete sentences
-      - Use concise but complete phrases for strengths and gaps (not just keywords)
-      - Make recommendations specific and actionable
-      - Avoid truncating words or sentences mid-way
+      IMPORTANT FORMATTING RULES: 
+      - Keep reasoning under 300 characters but complete the sentence
+      - For strengths: Use SHORT skill names (e.g. "Python Programming", "Statistical Modeling", "Machine Learning", "Data Visualization")
+      - For gaps: Use SHORT missing skill names (e.g. "Sales Analytics", "A/B Testing", "Cloud Deployment")
+      - For recommendations: One complete sentence each, max 100 characters
+      - Focus on SKILLS and TECHNOLOGIES, not long descriptions
+      - Be specific and actionable
     `;
 
     try {
@@ -456,11 +458,35 @@ document.addEventListener('DOMContentLoaded', function() {
       const data = await response.json();
       console.log('JobGenie: API response:', data);
       
-      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-        throw new Error('Invalid response format from API');
+      // Enhanced error checking for different response structures
+      if (!data.candidates || !Array.isArray(data.candidates) || data.candidates.length === 0) {
+        console.error('JobGenie: No candidates in response:', data);
+        throw new Error('No response candidates from API. Please try again.');
       }
       
-      const generatedText = data.candidates[0].content.parts[0].text;
+      const candidate = data.candidates[0];
+      if (!candidate) {
+        console.error('JobGenie: First candidate is undefined:', data);
+        throw new Error('Invalid candidate structure from API');
+      }
+      
+      // Check for different possible response structures
+      let generatedText = '';
+      
+      if (candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text) {
+        // Standard Gemini 1.5 structure
+        generatedText = candidate.content.parts[0].text;
+      } else if (candidate.text) {
+        // Alternative structure - direct text property
+        generatedText = candidate.text;
+      } else if (candidate.output) {
+        // Alternative structure - output property
+        generatedText = candidate.output;
+      } else {
+        console.error('JobGenie: Cannot find text in candidate:', candidate);
+        throw new Error('Cannot extract text from API response. Response structure may have changed.');
+      }
+      
       console.log('JobGenie: Generated text:', generatedText);
       
       // Extract JSON from response
@@ -525,18 +551,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     fitScoreDiv.innerHTML = `<div class="${scoreClass}">Fit Score: ${score}%</div>`;
     
-    // Smart truncation for analysis - cut at word boundaries, not mid-word
+    // Smart truncation for analysis - more flexible limits
     let shortAnalysis = analysis.reasoning;
-    if (analysis.reasoning.length > 300) {
-      // Find the last complete sentence within 300 characters
-      const truncated = analysis.reasoning.substring(0, 300);
+    if (analysis.reasoning.length > 400) {
+      // Find the last complete sentence within a reasonable limit
+      const truncated = analysis.reasoning.substring(0, 400);
       const lastPeriod = truncated.lastIndexOf('.');
       const lastSpace = truncated.lastIndexOf(' ');
       
-      if (lastPeriod > 250) {
+      if (lastPeriod > 300) {
         // If there's a complete sentence, use it
         shortAnalysis = analysis.reasoning.substring(0, lastPeriod + 1);
-      } else if (lastSpace > 250) {
+      } else if (lastSpace > 300) {
         // Otherwise, cut at the last complete word
         shortAnalysis = analysis.reasoning.substring(0, lastSpace) + '...';
       } else {
@@ -544,40 +570,20 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
     
-    // Smart extraction for strengths and gaps - preserve complete phrases
+    // Minimal processing for strengths and gaps - expect them to be concise from API
     const shortStrengths = analysis.strengths.map(s => {
-      // If the strength is already short, keep it as is
-      if (s.length <= 50) return s;
-      
-      // For longer strengths, try to get meaningful keywords
-      const words = s.split(' ');
-      if (words.length <= 5) {
-        return s; // Keep short phrases intact
-      } else {
-        // Take first 5 words or up to 50 characters, whichever is shorter
-        const firstFiveWords = words.slice(0, 5).join(' ');
-        return firstFiveWords.length <= 50 ? firstFiveWords : s.substring(0, 47) + '...';
-      }
+      // Since we're asking for short skill names, just clean them up
+      return s.trim();
     });
     
     const shortGaps = analysis.gaps.map(g => {
-      // If the gap is already short, keep it as is  
-      if (g.length <= 50) return g;
-      
-      // For longer gaps, try to get meaningful keywords
-      const words = g.split(' ');
-      if (words.length <= 5) {
-        return g; // Keep short phrases intact
-      } else {
-        // Take first 5 words or up to 50 characters, whichever is shorter
-        const firstFiveWords = words.slice(0, 5).join(' ');
-        return firstFiveWords.length <= 50 ? firstFiveWords : g.substring(0, 47) + '...';
-      }
+      // Since we're asking for short skill names, just clean them up
+      return g.trim();
     });
     
-    // Keep recommendations but make them longer (increase limit to show complete text)
+    // Don't truncate recommendations - expect them to be concise from API
     const shortRecommendations = analysis.recommendations.map(r => {
-      return r.length > 120 ? r.substring(0, 120) + '...' : r;
+      return r.trim();
     });
     
     analysisDetailsDiv.innerHTML = `
@@ -595,7 +601,7 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
   }
 
-  // Interview PDF Generation Function
+  // Interview Text Generation Function - SIMPLIFIED TEXT ONLY
   async function generateInterviewPDF() {
     if (!currentJobData) {
       alert('Please analyze a job first before generating interview questions.');
@@ -603,7 +609,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const generatePdfBtn = document.getElementById('generate-interview-pdf');
-    generatePdfBtn.textContent = '⏳ Generating PDF...';
+    generatePdfBtn.textContent = 'Generating Questions...';
     generatePdfBtn.disabled = true;
 
     try {
@@ -621,88 +627,377 @@ document.addEventListener('DOMContentLoaded', function() {
           return;
         }
 
-        // Generate interview questions using Gemini
-        const interviewData = await generateInterviewQuestions(currentJobData, result.resume, result.apiKey);
-        
-        // Create and download PDF
-        createInterviewPDF(interviewData, currentJobData);
+        try {
+          console.log('🚀 Generating AI interview questions...');
+          
+          // Generate questions using AI - NO FALLBACKS
+          const interviewData = await generateInterviewQuestions(currentJobData, result.resume, result.apiKey);
+          
+          if (!interviewData || (!interviewData.behavioralQuestions && !interviewData.technicalQuestions)) {
+            throw new Error('AI did not generate any questions. Please try again.');
+          }
+          
+          console.log('✅ AI generated questions successfully!');
+          console.log('📋 Questions data:', interviewData);
+          
+          // Only create text file download
+          createInterviewTextFile(interviewData, currentJobData);
+          
+        } catch (apiError) {
+          console.error('❌ AI Generation Error:', apiError);
+          
+          // If API quota exceeded, offer to generate basic questions from job posting
+          if (apiError.message.includes('quota exceeded') || apiError.message.includes('429')) {
+            const useBasic = confirm(`API quota exceeded. Would you like to generate basic interview questions based on the job posting instead?\n\nClick OK for basic questions, or Cancel to skip.`);
+            
+            if (useBasic) {
+              // Generate basic questions from job posting
+              const basicQuestions = generateBasicQuestionsFromJob(currentJobData);
+              createInterviewTextFile(basicQuestions, currentJobData);
+            } else {
+              alert('No questions generated. Please try again later when your API quota resets.');
+            }
+          } else {
+            alert(`Failed to generate questions: ${apiError.message}\n\nPlease check your API key and try again.`);
+          }
+        }
         
         resetPdfButton();
       });
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
+      console.error('❌ Error:', error);
+      alert('Error generating interview questions. Please try again.');
       resetPdfButton();
     }
   }
 
+  // Generate basic questions when API fails
+  function generateBasicQuestionsFromJob(jobData) {
+    console.log('📝 Generating basic questions from job posting...');
+    
+    const jobTitle = jobData.title.toLowerCase();
+    const jobDescription = jobData.description.toLowerCase();
+    
+    // Extract technologies/skills mentioned in job description
+    const techKeywords = [
+      'python', 'javascript', 'java', 'react', 'node', 'sql', 'aws', 'docker', 
+      'kubernetes', 'git', 'agile', 'api', 'database', 'cloud', 'machine learning',
+      'data science', 'analytics', 'html', 'css', 'typescript', 'angular', 'vue'
+    ];
+    
+    const foundTechs = techKeywords.filter(tech => 
+      jobDescription.includes(tech) || jobTitle.includes(tech)
+    );
+    
+    // Basic behavioral questions relevant to any role
+    const behavioralQuestions = [
+      "Tell me about yourself and why you're interested in this role.",
+      "Describe a challenging project you worked on and how you overcame obstacles.",
+      "Give me an example of a time when you had to work with a difficult team member.",
+      "Tell me about a time when you had to learn something new quickly.",
+      "Describe a situation where you had to meet a tight deadline.",
+      "How do you handle constructive feedback and criticism?",
+      "Tell me about a time when you made a mistake and how you handled it.",
+      "Describe your experience working in a team environment.",
+      "What motivates you in your work?",
+      `Why are you interested in working at ${jobData.company}?`
+    ];
+    
+    // Technical questions based on job posting
+    const technicalQuestions = [
+      `What experience do you have that makes you suitable for a ${jobData.title} role?`,
+      "Walk me through your technical background and relevant skills.",
+      "How do you stay updated with industry trends and new technologies?",
+      "Describe your approach to problem-solving in technical projects.",
+      "Tell me about your experience with version control systems.",
+      "How do you ensure code quality in your projects?",
+      "Describe your experience with testing and debugging.",
+      "What development methodologies have you worked with?",
+      "How do you handle technical documentation?",
+      "Describe a technical challenge you faced and how you solved it."
+    ];
+    
+    // Add technology-specific questions if found
+    foundTechs.forEach(tech => {
+      technicalQuestions.push(`What is your experience with ${tech.toUpperCase()}?`);
+      technicalQuestions.push(`How have you used ${tech.toUpperCase()} in your previous projects?`);
+    });
+    
+    // Role-specific questions
+    if (jobTitle.includes('senior') || jobTitle.includes('lead')) {
+      behavioralQuestions.push("Tell me about your experience mentoring junior developers.");
+      technicalQuestions.push("How do you approach technical decision-making for a team?");
+    }
+    
+    if (jobTitle.includes('data') || jobTitle.includes('analyst')) {
+      technicalQuestions.push("How do you ensure data quality and accuracy?");
+      technicalQuestions.push("Describe your experience with data visualization tools.");
+    }
+    
+    if (jobTitle.includes('frontend') || jobTitle.includes('ui')) {
+      technicalQuestions.push("How do you ensure cross-browser compatibility?");
+      technicalQuestions.push("What's your approach to responsive design?");
+    }
+    
+    if (jobTitle.includes('backend') || jobTitle.includes('api')) {
+      technicalQuestions.push("How do you design scalable APIs?");
+      technicalQuestions.push("What's your approach to database optimization?");
+    }
+    
+    return {
+      behavioralQuestions: behavioralQuestions.slice(0, 8), // Limit to 8 questions
+      technicalQuestions: technicalQuestions.slice(0, 12)   // Limit to 12 questions
+    };
+  }
+
   function resetPdfButton() {
     const generatePdfBtn = document.getElementById('generate-interview-pdf');
-    generatePdfBtn.textContent = '📄 Generate Interview Prep PDF';
+    generatePdfBtn.textContent = 'Generate Interview Questions';
     generatePdfBtn.disabled = false;
   }
 
+  // Create text file download with safe array handling
+  function createInterviewTextFile(interviewData, jobData, isBasic = false) {
+    console.log('📝 Creating text file with data:', interviewData);
+    
+    // Safely get arrays with fallbacks
+    const behavioralQuestions = interviewData.behavioralQuestions || [];
+    const technicalQuestions = interviewData.technicalQuestions || [];
+    
+    const generationType = isBasic ? 'Basic Questions (Generated from Job Posting)' : 'AI-Generated Questions';
+    
+    const content = `INTERVIEW PREPARATION GUIDE
+${jobData.title} at ${jobData.company}
+Generated on: ${new Date().toLocaleDateString()}
+Type: ${generationType}
+
+=====================================================
+BEHAVIORAL QUESTIONS (${behavioralQuestions.length} questions)
+=====================================================
+
+${behavioralQuestions.length > 0 ? 
+  behavioralQuestions.map((question, index) => 
+    `${index + 1}. ${question}`
+  ).join('\n\n') : 
+  'No behavioral questions generated.'
+}
+
+=====================================================
+TECHNICAL QUESTIONS (${technicalQuestions.length} questions)
+=====================================================
+
+${technicalQuestions.length > 0 ? 
+  technicalQuestions.map((question, index) => 
+    `${index + 1}. ${question}`
+  ).join('\n\n') : 
+  'No technical questions generated.'
+}
+
+=====================================================
+INTERVIEW TIPS
+=====================================================
+
+• Research ${jobData.company} culture and recent news
+• Prepare specific examples from your experience that match the job requirements
+• Practice explaining technical concepts clearly and simply
+• Prepare thoughtful questions to ask the interviewer about the role and team
+• Review the job description and align your experience with their needs
+• Be ready with specific examples and quantifiable achievements
+• Use the STAR method (Situation, Task, Action, Result) for behavioral questions
+
+=====================================================
+JOB-SPECIFIC PREPARATION
+=====================================================
+
+• This ${jobData.title} role requires specific skills mentioned in the job posting
+• Review technologies and frameworks mentioned in the job description
+• Prepare examples that demonstrate relevant experience
+• Think about challenges specific to this type of role and how you'd handle them
+
+${isBasic ? `
+=====================================================
+NOTE
+=====================================================
+
+These questions were generated from the job posting content due to API quota limits.
+For AI-powered personalized questions, please wait for your API quota to reset.
+
+` : ''}Generated by Job Genie - AI-Powered Career Assistant
+Good luck with your interview! 🚀
+
+Total Questions Generated: ${behavioralQuestions.length + technicalQuestions.length}
+`;
+
+    // Create and download text file
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const prefix = isBasic ? 'Basic_Interview_Questions' : 'Interview_Questions';
+    a.href = url;
+    a.download = `${prefix}_${jobData.title.replace(/[^a-zA-Z0-9]/g, '_')}_${jobData.company.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    const questionType = isBasic ? 'basic job-focused' : 'AI-generated';
+    alert(`✅ ${questionType} interview questions downloaded!\n\n📊 Generated:\n• ${behavioralQuestions.length} Behavioral Questions\n• ${technicalQuestions.length} Technical Questions\n\nCheck your Downloads folder.`);
+  }
+
   async function generateInterviewQuestions(jobData, resume, apiKey) {
-    const prompt = `
-      Generate 5-7 relevant interview questions and STAR format answers for this job posting based on the candidate's background.
+    console.log('🎯 Generating AI interview questions for:', jobData.title);
+    
+    // Simplified, focused prompt that emphasizes job requirements
+    const prompt = `Generate interview questions for this specific job posting. Focus on the skills and requirements mentioned in the job description.
 
-      JOB POSTING:
-      Title: ${jobData.title}
-      Company: ${jobData.company}
-      Description: ${jobData.description}
+JOB TITLE: ${jobData.title}
+COMPANY: ${jobData.company}
+JOB DESCRIPTION: ${jobData.description}
 
-      CANDIDATE BACKGROUND:
-      ${resume}
+CANDIDATE BACKGROUND: ${resume}
 
-      Please respond in JSON format:
-      {
-        "questions": [
-          {
-            "question": "<relevant interview question>",
-            "situation": "<STAR format Situation>",
-            "task": "<STAR format Task>", 
-            "action": "<STAR format Action>",
-            "result": "<STAR format Result>"
+Create interview questions that test the specific skills and requirements mentioned in this job posting. Generate:
+1. 4-5 behavioral questions relevant to this role
+2. 10-15 technical questions covering the technologies and skills mentioned in the job description
+
+Format as JSON only:
+{
+  "behavioralQuestions": [
+    "Tell me about a time when you...",
+    "Describe a situation where you...",
+    "Give me an example of when you...",
+    "Walk me through how you would handle..."
+  ],
+  "technicalQuestions": [
+    "What is your experience with [technology from job posting]?",
+    "How would you approach [specific challenge mentioned in job]?",
+    "Explain your understanding of [concept relevant to role]",
+    "Describe your process for [task mentioned in job description]"
+  ]
+}
+
+Make questions specific to the actual technologies, frameworks, and requirements mentioned in the job posting above.`;
+
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.8,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 3000,
           }
-        ]
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API Error:', response.status, errorText);
+        
+        // Handle specific error types
+        if (response.status === 429) {
+          throw new Error('API quota exceeded. Please wait a few minutes and try again, or check your Gemini API billing settings.');
+        } else if (response.status === 403) {
+          throw new Error('API key invalid or unauthorized. Please check your Gemini API key.');
+        } else if (response.status === 400) {
+          throw new Error('Invalid request format. Please try again.');
+        } else {
+          throw new Error(`API failed with status ${response.status}. Please try again later.`);
+        }
       }
 
-      Make questions specific to the role and company. Base STAR answers on the candidate's actual experience where possible.
-    `;
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 2048,
+      const data = await response.json();
+      console.log('✅ API Response received');
+      
+      // Enhanced error checking for different response structures
+      if (!data.candidates || !Array.isArray(data.candidates) || data.candidates.length === 0) {
+        console.error('Interview Gen: No candidates in response:', data);
+        throw new Error('No response candidates from API. Please try again.');
+      }
+      
+      const candidate = data.candidates[0];
+      if (!candidate) {
+        console.error('Interview Gen: First candidate is undefined:', data);
+        throw new Error('Invalid candidate structure from API');
+      }
+      
+      // Check for different possible response structures
+      let generatedText = '';
+      
+      if (candidate.content && candidate.content.parts && candidate.content.parts[0] && candidate.content.parts[0].text) {
+        // Standard Gemini 1.5 structure
+        generatedText = candidate.content.parts[0].text;
+      } else if (candidate.text) {
+        // Alternative structure - direct text property
+        generatedText = candidate.text;
+      } else if (candidate.output) {
+        // Alternative structure - output property
+        generatedText = candidate.output;
+      } else {
+        console.error('Interview Gen: Cannot find text in candidate:', candidate);
+        throw new Error('Cannot extract text from API response. Response structure may have changed.');
+      }
+      
+      console.log('📝 Generated interview text received');
+      console.log('📝 Generated content length:', generatedText.length);
+      
+      // Extract JSON with multiple strategies
+      let questions = null;
+      
+      try {
+        // Try direct parsing first
+        const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          questions = JSON.parse(jsonMatch[0]);
         }
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
-    }
-
-    const data = await response.json();
-    const generatedText = data.candidates[0].content.parts[0].text;
-    
-    // Extract JSON from response
-    const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    } else {
-      throw new Error('Could not parse interview questions from API response');
+      } catch (e) {
+        console.log('First JSON parse failed, trying cleanup...');
+        
+        // Try cleaning up the response
+        try {
+          const cleaned = generatedText
+            .replace(/```json/g, '')
+            .replace(/```/g, '')
+            .trim();
+          const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            questions = JSON.parse(jsonMatch[0]);
+          }
+        } catch (e2) {
+          console.error('All JSON parsing failed:', e2);
+          throw new Error('Could not parse AI response as JSON');
+        }
+      }
+      
+      if (!questions) {
+        throw new Error('No valid JSON found in AI response');
+      }
+      
+      // Validate we have questions
+      if (!questions.behavioralQuestions && !questions.technicalQuestions) {
+        throw new Error('No questions found in AI response');
+      }
+      
+      console.log('✅ Successfully generated questions:', {
+        behavioral: questions.behavioralQuestions?.length || 0,
+        technical: questions.technicalQuestions?.length || 0,
+        fullData: questions
+      });
+      
+      return questions;
+      
+    } catch (error) {
+      console.error('❌ Interview generation failed:', error);
+      throw error; // Re-throw to be handled by caller
     }
   }
 
@@ -713,35 +1008,43 @@ document.addEventListener('DOMContentLoaded', function() {
       <head>
         <title>Interview Prep - ${jobData.title} at ${jobData.company}</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
-          h1 { color: #0073b1; border-bottom: 2px solid #0073b1; padding-bottom: 10px; }
-          h2 { color: #333; margin-top: 30px; }
-          h3 { color: #555; margin-top: 20px; }
+          body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; font-size: 12px; }
+          h1 { color: #0073b1; border-bottom: 2px solid #0073b1; padding-bottom: 10px; font-size: 24px; }
+          h2 { color: #333; margin-top: 30px; page-break-before: always; font-size: 18px; }
+          h3 { color: #555; margin-top: 20px; font-size: 16px; }
+          h4 { color: #0073b1; margin-top: 15px; font-size: 14px; }
           .job-info { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 30px; }
-          .question-block { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
-          .star-section { margin: 10px 0; }
+          .question-block { margin-bottom: 25px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+          .star-section { margin: 8px 0; }
           .star-label { font-weight: bold; color: #0073b1; }
+          .tech-category { margin-bottom: 25px; }
+          .tech-question { margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-left: 3px solid #0073b1; }
+          .answer { margin-top: 5px; padding-left: 10px; }
           @media print { 
-            body { margin: 0; } 
-            .question-block { page-break-inside: avoid; }
+            body { margin: 0; font-size: 11px; } 
+            .question-block, .tech-question { page-break-inside: avoid; }
+            h2 { page-break-before: always; }
           }
         </style>
       </head>
       <body>
-        <h1>Interview Preparation Guide</h1>
+        <h1>Comprehensive Interview Preparation Guide</h1>
         
         <div class="job-info">
-          <h2>Position Details</h2>
+          <h2 style="margin-top: 0; page-break-before: auto;">Position Details</h2>
           <p><strong>Job Title:</strong> ${jobData.title}</p>
           <p><strong>Company:</strong> ${jobData.company}</p>
           <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
+          <p><strong>Content:</strong> Behavioral Questions (STAR Format) + Technical/Skill Questions</p>
         </div>
 
-        <h2>Interview Questions & STAR Format Answers</h2>
+        <h2>Part 1: Behavioral Questions (STAR Format)</h2>
+        <p><em>Use the STAR method: Situation, Task, Action, Result to structure your answers.</em></p>
         
-        ${interviewData.questions.map((q, index) => `
+        ${(interviewData.starQuestions || interviewData.questions || []).map((q, index) => `
           <div class="question-block">
-            <h3>Question ${index + 1}: ${q.question}</h3>
+            <h3>Behavioral Question ${index + 1}</h3>
+            <p><strong>Q: ${q.question}</strong></p>
             
             <div class="star-section">
               <span class="star-label">Situation:</span><br>
@@ -764,8 +1067,30 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
           </div>
         `).join('')}
+
+        <h2>Part 2: Technical & Skill-Based Questions</h2>
+        <p><em>Common technical questions for ${jobData.title} positions with detailed answers.</em></p>
         
-        <div style="margin-top: 50px; text-align: center; color: #666;">
+        ${(interviewData.technicalQuestions || []).map(category => `
+          <div class="tech-category">
+            <h3>${category.category}</h3>
+            ${category.questions.map((tq, index) => `
+              <div class="tech-question">
+                <h4>Q${index + 1}: ${tq.question}</h4>
+                <div class="answer">
+                  <strong>Answer:</strong><br>
+                  ${tq.answer}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+        
+        <div style="margin-top: 50px; text-align: center; color: #666; border-top: 1px solid #ddd; padding-top: 20px;">
+          <p><strong>Interview Tips:</strong></p>
+          <p>• Practice your STAR answers out loud • Research the company culture • Prepare thoughtful questions to ask</p>
+          <p>• Review technical concepts thoroughly • Be ready with specific examples • Show enthusiasm for the role</p>
+          <br>
           <p>Generated by JobGenie Chrome Extension</p>
           <p>Good luck with your interview! 🍀</p>
         </div>

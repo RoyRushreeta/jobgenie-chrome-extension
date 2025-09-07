@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "JobGenie: LinkedIn Job Fit Analyzer",
+  "name": "Job Genie: AI-Powered Career Assistant",
   "version": "1.0",
-  "description": "Analyze LinkedIn job postings and get a fit score based on your profile using AI.",
+  "description": "Analyze LinkedIn job postings, get personalized fit scores, and generate interview prep materials using AI.",
   "permissions": ["scripting", "activeTab", "storage"],
   "host_permissions": ["https://www.linkedin.com/*", "https://generativelanguage.googleapis.com/*"],
   "action": {
