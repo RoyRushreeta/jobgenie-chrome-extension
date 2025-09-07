@@ -341,9 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function displayJobInfo(jobData) {
     jobInfoDiv.innerHTML = `
-      <strong>Title:</strong> ${jobData.title || 'Not found'}<br>
-      <strong>Company:</strong> ${jobData.company || 'Not found'}<br>
-      <strong>Description:</strong> ${jobData.description ? jobData.description.substring(0, 200) + '...' : 'Not found'}
+      <p style="color: #0073b1; font-weight: 500;">Job detected and ready for analysis</p>
     `;
   }
 
@@ -388,14 +386,16 @@ document.addEventListener('DOMContentLoaded', function() {
       Description: ${jobData.description}
       Job ID: ${jobData.jobId || 'N/A'}
 
-      Please respond in JSON format:
+      Please respond in JSON format with CONCISE outputs:
       {
         "fitScore": <number 0-100>,
-        "reasoning": "<detailed explanation>",
-        "strengths": ["<strength1>", "<strength2>"],
-        "gaps": ["<gap1>", "<gap2>"],
-        "recommendations": ["<rec1>", "<rec2>"]
+        "reasoning": "<2-3 sentences maximum explaining the fit score>",
+        "strengths": ["<keyword1>", "<keyword2>", "<keyword3>"],
+        "gaps": ["<keyword1>", "<keyword2>", "<keyword3>"],
+        "recommendations": ["<short actionable advice 1>", "<short actionable advice 2>"]
       }
+      
+      Keep reasoning under 200 characters. Use keywords/short phrases for strengths and gaps. Make recommendations concise and actionable.
     `;
 
     try {
@@ -510,18 +510,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     fitScoreDiv.innerHTML = `<div class="${scoreClass}">Fit Score: ${score}%</div>`;
     
+    // Truncate analysis to 2-3 lines (about 200 characters)
+    const shortAnalysis = analysis.reasoning.length > 200 
+      ? analysis.reasoning.substring(0, 200) + '...' 
+      : analysis.reasoning;
+    
+    // Extract just keywords/short phrases from strengths and gaps
+    const shortStrengths = analysis.strengths.map(s => {
+      // Extract key words/phrases (first 3-4 words or up to 30 chars)
+      const words = s.split(' ');
+      return words.length > 4 ? words.slice(0, 4).join(' ') : s.substring(0, 30);
+    });
+    
+    const shortGaps = analysis.gaps.map(g => {
+      // Extract key words/phrases (first 3-4 words or up to 30 chars)
+      const words = g.split(' ');
+      return words.length > 4 ? words.slice(0, 4).join(' ') : g.substring(0, 30);
+    });
+    
+    // Keep recommendations but make them longer (increase limit to show complete text)
+    const shortRecommendations = analysis.recommendations.map(r => {
+      return r.length > 120 ? r.substring(0, 120) + '...' : r;
+    });
+    
     analysisDetailsDiv.innerHTML = `
       <strong>Analysis:</strong><br>
-      ${analysis.reasoning}<br><br>
+      ${shortAnalysis}<br><br>
       
       <strong>Your Strengths:</strong><br>
-      ${analysis.strengths.map(s => `• ${s}`).join('<br>')}<br><br>
+      ${shortStrengths.map(s => `&bull; ${s}`).join(' ')}<br><br>
       
       <strong>Potential Gaps:</strong><br>
-      ${analysis.gaps.map(g => `• ${g}`).join('<br>')}<br><br>
+      ${shortGaps.map(g => `&bull; ${g}`).join(' ')}<br><br>
       
       <strong>Recommendations:</strong><br>
-      ${analysis.recommendations.map(r => `• ${r}`).join('<br>')}
+      ${shortRecommendations.map(r => `&bull; ${r}`).join('<br>')}
     `;
   }
 
