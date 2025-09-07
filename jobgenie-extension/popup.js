@@ -4,10 +4,14 @@ document.addEventListener('DOMContentLoaded', function() {
   const saveApiKeyBtn = document.getElementById('save-api-key');
   const saveResumeBtn = document.getElementById('save-resume');
   const analyzeJobBtn = document.getElementById('analyze-job');
+  const generateInterviewPdfBtn = document.getElementById('generate-interview-pdf');
   const jobInfoDiv = document.getElementById('job-info');
   const fitScoreContainer = document.getElementById('fit-score-container');
   const fitScoreDiv = document.getElementById('fit-score');
   const analysisDetailsDiv = document.getElementById('analysis-details');
+
+  // Global variable to store current job data for PDF generation
+  let currentJobData = null;
 
   // Load saved data
   loadSavedData();
@@ -43,6 +47,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   analyzeJobBtn.addEventListener('click', function() {
     analyzeJob();
+  });
+
+  generateInterviewPdfBtn.addEventListener('click', function() {
+    generateInterviewPDF();
   });
 
   function showMessage(message, type) {
@@ -340,6 +348,9 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function displayJobInfo(jobData) {
+    // Store job data globally for PDF generation
+    currentJobData = jobData;
+    
     jobInfoDiv.innerHTML = `
       <p style="color: #0073b1; font-weight: 500;">Job detected and ready for analysis</p>
     `;
@@ -386,16 +397,20 @@ document.addEventListener('DOMContentLoaded', function() {
       Description: ${jobData.description}
       Job ID: ${jobData.jobId || 'N/A'}
 
-      Please respond in JSON format with CONCISE outputs:
+      Please respond in JSON format with CONCISE but COMPLETE outputs:
       {
         "fitScore": <number 0-100>,
-        "reasoning": "<2-3 sentences maximum explaining the fit score>",
-        "strengths": ["<keyword1>", "<keyword2>", "<keyword3>"],
-        "gaps": ["<keyword1>", "<keyword2>", "<keyword3>"],
-        "recommendations": ["<short actionable advice 1>", "<short actionable advice 2>"]
+        "reasoning": "<2-3 complete sentences explaining the fit score, max 250 characters>",
+        "strengths": ["<concise strength 1>", "<concise strength 2>", "<concise strength 3>"],
+        "gaps": ["<concise gap 1>", "<concise gap 2>", "<concise gap 3>"],
+        "recommendations": ["<actionable advice 1>", "<actionable advice 2>"]
       }
       
-      Keep reasoning under 200 characters. Use keywords/short phrases for strengths and gaps. Make recommendations concise and actionable.
+      IMPORTANT: 
+      - Keep reasoning under 250 characters but ensure complete sentences
+      - Use concise but complete phrases for strengths and gaps (not just keywords)
+      - Make recommendations specific and actionable
+      - Avoid truncating words or sentences mid-way
     `;
 
     try {
@@ -510,22 +525,54 @@ document.addEventListener('DOMContentLoaded', function() {
 
     fitScoreDiv.innerHTML = `<div class="${scoreClass}">Fit Score: ${score}%</div>`;
     
-    // Truncate analysis to 2-3 lines (about 200 characters)
-    const shortAnalysis = analysis.reasoning.length > 200 
-      ? analysis.reasoning.substring(0, 200) + '...' 
-      : analysis.reasoning;
+    // Smart truncation for analysis - cut at word boundaries, not mid-word
+    let shortAnalysis = analysis.reasoning;
+    if (analysis.reasoning.length > 300) {
+      // Find the last complete sentence within 300 characters
+      const truncated = analysis.reasoning.substring(0, 300);
+      const lastPeriod = truncated.lastIndexOf('.');
+      const lastSpace = truncated.lastIndexOf(' ');
+      
+      if (lastPeriod > 250) {
+        // If there's a complete sentence, use it
+        shortAnalysis = analysis.reasoning.substring(0, lastPeriod + 1);
+      } else if (lastSpace > 250) {
+        // Otherwise, cut at the last complete word
+        shortAnalysis = analysis.reasoning.substring(0, lastSpace) + '...';
+      } else {
+        shortAnalysis = truncated + '...';
+      }
+    }
     
-    // Extract just keywords/short phrases from strengths and gaps
+    // Smart extraction for strengths and gaps - preserve complete phrases
     const shortStrengths = analysis.strengths.map(s => {
-      // Extract key words/phrases (first 3-4 words or up to 30 chars)
+      // If the strength is already short, keep it as is
+      if (s.length <= 50) return s;
+      
+      // For longer strengths, try to get meaningful keywords
       const words = s.split(' ');
-      return words.length > 4 ? words.slice(0, 4).join(' ') : s.substring(0, 30);
+      if (words.length <= 5) {
+        return s; // Keep short phrases intact
+      } else {
+        // Take first 5 words or up to 50 characters, whichever is shorter
+        const firstFiveWords = words.slice(0, 5).join(' ');
+        return firstFiveWords.length <= 50 ? firstFiveWords : s.substring(0, 47) + '...';
+      }
     });
     
     const shortGaps = analysis.gaps.map(g => {
-      // Extract key words/phrases (first 3-4 words or up to 30 chars)
+      // If the gap is already short, keep it as is  
+      if (g.length <= 50) return g;
+      
+      // For longer gaps, try to get meaningful keywords
       const words = g.split(' ');
-      return words.length > 4 ? words.slice(0, 4).join(' ') : g.substring(0, 30);
+      if (words.length <= 5) {
+        return g; // Keep short phrases intact
+      } else {
+        // Take first 5 words or up to 50 characters, whichever is shorter
+        const firstFiveWords = words.slice(0, 5).join(' ');
+        return firstFiveWords.length <= 50 ? firstFiveWords : g.substring(0, 47) + '...';
+      }
     });
     
     // Keep recommendations but make them longer (increase limit to show complete text)
@@ -546,6 +593,199 @@ document.addEventListener('DOMContentLoaded', function() {
       <strong>Recommendations:</strong><br>
       ${shortRecommendations.map(r => `&bull; ${r}`).join('<br>')}
     `;
+  }
+
+  // Interview PDF Generation Function
+  async function generateInterviewPDF() {
+    if (!currentJobData) {
+      alert('Please analyze a job first before generating interview questions.');
+      return;
+    }
+
+    const generatePdfBtn = document.getElementById('generate-interview-pdf');
+    generatePdfBtn.textContent = '⏳ Generating PDF...';
+    generatePdfBtn.disabled = true;
+
+    try {
+      // Get API key and resume
+      chrome.storage.sync.get(['apiKey', 'resume'], async function(result) {
+        if (!result.apiKey) {
+          alert('Please add your Gemini API key first.');
+          resetPdfButton();
+          return;
+        }
+
+        if (!result.resume) {
+          alert('Please add your resume/profile first.');
+          resetPdfButton();
+          return;
+        }
+
+        // Generate interview questions using Gemini
+        const interviewData = await generateInterviewQuestions(currentJobData, result.resume, result.apiKey);
+        
+        // Create and download PDF
+        createInterviewPDF(interviewData, currentJobData);
+        
+        resetPdfButton();
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+      resetPdfButton();
+    }
+  }
+
+  function resetPdfButton() {
+    const generatePdfBtn = document.getElementById('generate-interview-pdf');
+    generatePdfBtn.textContent = '📄 Generate Interview Prep PDF';
+    generatePdfBtn.disabled = false;
+  }
+
+  async function generateInterviewQuestions(jobData, resume, apiKey) {
+    const prompt = `
+      Generate 5-7 relevant interview questions and STAR format answers for this job posting based on the candidate's background.
+
+      JOB POSTING:
+      Title: ${jobData.title}
+      Company: ${jobData.company}
+      Description: ${jobData.description}
+
+      CANDIDATE BACKGROUND:
+      ${resume}
+
+      Please respond in JSON format:
+      {
+        "questions": [
+          {
+            "question": "<relevant interview question>",
+            "situation": "<STAR format Situation>",
+            "task": "<STAR format Task>", 
+            "action": "<STAR format Action>",
+            "result": "<STAR format Result>"
+          }
+        ]
+      }
+
+      Make questions specific to the role and company. Base STAR answers on the candidate's actual experience where possible.
+    `;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 2048,
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const generatedText = data.candidates[0].content.parts[0].text;
+    
+    // Extract JSON from response
+    const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    } else {
+      throw new Error('Could not parse interview questions from API response');
+    }
+  }
+
+  function createInterviewPDF(interviewData, jobData) {
+    // Simple PDF creation using HTML and print functionality
+    const pdfContent = `
+      <html>
+      <head>
+        <title>Interview Prep - ${jobData.title} at ${jobData.company}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+          h1 { color: #0073b1; border-bottom: 2px solid #0073b1; padding-bottom: 10px; }
+          h2 { color: #333; margin-top: 30px; }
+          h3 { color: #555; margin-top: 20px; }
+          .job-info { background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 30px; }
+          .question-block { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+          .star-section { margin: 10px 0; }
+          .star-label { font-weight: bold; color: #0073b1; }
+          @media print { 
+            body { margin: 0; } 
+            .question-block { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Interview Preparation Guide</h1>
+        
+        <div class="job-info">
+          <h2>Position Details</h2>
+          <p><strong>Job Title:</strong> ${jobData.title}</p>
+          <p><strong>Company:</strong> ${jobData.company}</p>
+          <p><strong>Generated on:</strong> ${new Date().toLocaleDateString()}</p>
+        </div>
+
+        <h2>Interview Questions & STAR Format Answers</h2>
+        
+        ${interviewData.questions.map((q, index) => `
+          <div class="question-block">
+            <h3>Question ${index + 1}: ${q.question}</h3>
+            
+            <div class="star-section">
+              <span class="star-label">Situation:</span><br>
+              ${q.situation}
+            </div>
+            
+            <div class="star-section">
+              <span class="star-label">Task:</span><br>
+              ${q.task}
+            </div>
+            
+            <div class="star-section">
+              <span class="star-label">Action:</span><br>
+              ${q.action}
+            </div>
+            
+            <div class="star-section">
+              <span class="star-label">Result:</span><br>
+              ${q.result}
+            </div>
+          </div>
+        `).join('')}
+        
+        <div style="margin-top: 50px; text-align: center; color: #666;">
+          <p>Generated by JobGenie Chrome Extension</p>
+          <p>Good luck with your interview! 🍀</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Create a new window and print to PDF
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(pdfContent);
+    printWindow.document.close();
+    
+    // Trigger print dialog
+    printWindow.onload = function() {
+      printWindow.print();
+      // Close window after printing
+      setTimeout(() => {
+        printWindow.close();
+      }, 1000);
+    };
   }
 
   // Auto-analyze if on LinkedIn job page
