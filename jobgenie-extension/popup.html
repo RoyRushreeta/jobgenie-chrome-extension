@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>JobGenie Fit Score</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h2>JobGenie Fit Score</h2>
+    
+    <!-- Settings Section -->
+    <div id="settings-section" class="section">
+      <h3>Settings</h3>
+      <div class="input-group">
+        <label for="api-key">Gemini API Key:</label>
+        <input type="password" id="api-key" placeholder="Enter your Gemini API key">
+        <button id="save-api-key">Save</button>
+      </div>
+      <div class="input-group">
+        <label for="resume">Your Resume/Profile:</label>
+        <textarea id="resume" rows="4" placeholder="Paste your resume or key skills here..."></textarea>
+        <button id="save-resume">Save</button>
+      </div>
+    </div>
+
+    <!-- Job Analysis Section -->
+    <div id="analysis-section" class="section">
+      <h3>Job Analysis</h3>
+      <div id="job-info">
+        <p>Navigate to a LinkedIn job posting to analyze...</p>
+      </div>
+      <div id="fit-score-container" style="display: none;">
+        <div id="fit-score"></div>
+        <div id="analysis-details"></div>
+      </div>
+      <button id="analyze-job">Analyze Job</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

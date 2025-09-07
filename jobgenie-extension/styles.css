@@ -1,0 +1,107 @@
+.container {
+  width: 400px;
+  padding: 16px;
+  font-family: Arial, sans-serif;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #0073b1;
+}
+
+h3 {
+  color: #333;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 5px;
+}
+
+.section {
+  margin-bottom: 20px;
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 5px;
+}
+
+.input-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+input[type="password"], textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+button {
+  background-color: #0073b1;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 5px;
+}
+
+button:hover {
+  background-color: #005885;
+}
+
+#fit-score {
+  font-size: 1.5em;
+  font-weight: bold;
+  text-align: center;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 10px 0;
+}
+
+.score-excellent { background-color: #d4edda; color: #155724; }
+.score-good { background-color: #d1ecf1; color: #0c5460; }
+.score-fair { background-color: #fff3cd; color: #856404; }
+.score-poor { background-color: #f8d7da; color: #721c24; }
+
+#job-info {
+  background-color: #f8f9fa;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+#analysis-details {
+  background-color: #e9ecef;
+  padding: 10px;
+  border-radius: 5px;
+  margin-top: 10px;
+  font-size: 0.9em;
+}
+
+.loading {
+  text-align: center;
+  font-style: italic;
+  color: #666;
+}
+
+.error {
+  color: #dc3545;
+  background-color: #f8d7da;
+  padding: 8px;
+  border-radius: 4px;
+  margin: 5px 0;
+}
