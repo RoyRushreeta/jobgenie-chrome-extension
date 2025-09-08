@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Genie</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧞‍♂️ Job Genie</h1>
+            <p class="tagline">Enhanced AI-powered job analysis</p>
+        </header>
+
+        <!-- API Key Section -->
+        <div class="section" id="api-key-section">
+            <h3>🔑 Gemini API Key</h3>
+            <div class="input-group">
+                <input type="password" id="api-key" placeholder="Enter your Gemini API key">
+                <button id="save-api-key">Save</button>
+            </div>
+            <p class="help-text">Get your API key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a></p>
+        </div>
+
+        <!-- API Key Management Section (shown when key exists) -->
+        <div class="section hidden" id="api-key-management">
+            <h3>🔑 API Key</h3>
+            <div class="api-key-status">
+                <span class="status-text">✅ API key configured</span>
+                <button id="change-api-key" class="change-key-btn">⚙️ Change API Key</button>
+            </div>
+            <div id="api-key-message" class="status hidden"></div>
+        </div>
+
+        <!-- Resume Section -->
+        <div class="section" id="resume-section">
+            <h3>📄 Your Resume</h3>
+            <textarea id="resume-input" placeholder="Paste your resume here (will be saved for reuse)..."></textarea>
+            <button id="save-resume">Save Resume</button>
+            <div id="resume-status" class="status"></div>
+        </div>
+
+        <!-- Job Description Section -->
+        <div class="section" id="job-section">
+            <h3>💼 Job Description</h3>
+            <textarea id="job-input" placeholder="Paste job description here or highlight text on webpage and right-click 'Analyze Job with Job Genie'..."></textarea>
+            <button id="analyze-job" class="primary-btn">🔍 Analyze Job Match</button>
+        </div>
+
+        <!-- Loading Section -->
+        <div class="section hidden" id="loading-section">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Analyzing job match with AI...</p>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="section hidden" id="results-section">
+            <h3>📊 Analysis Results</h3>
+            
+            <div class="result-card match-card">
+                <div class="match-percentage">
+                    <span class="percentage" id="match-percentage">0%</span>
+                    <span class="label">Job Match</span>
+                </div>
+            </div>
+
+            <div class="result-card">
+                <h4>💪 Key Strengths</h4>
+                <ul id="strengths-list"></ul>
+            </div>
+
+            <div class="result-card">
+                <h4>⚠️ Skill Gaps</h4>
+                <ul id="gaps-list"></ul>
+            </div>
+
+            <div class="result-card">
+                <h4>📝 Resume Improvements</h4>
+                <ul id="improvements-list"></ul>
+            </div>
+
+            <div class="result-card">
+                <h4>🎤 Interview Questions</h4>
+                <ul id="questions-list"></ul>
+            </div>
+
+            <div class="result-actions">
+                <button id="save-results" class="secondary-btn save-btn">💾 Save Results</button>
+                <button id="new-analysis" class="secondary-btn">🔄 New Analysis</button>
+            </div>
+        </div>
+
+        <!-- Error Section -->
+        <div class="section hidden" id="error-section">
+            <div class="error">
+                <h4>❌ Error</h4>
+                <p id="error-message"></p>
+                <button id="retry-analysis" class="secondary-btn">Try Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "name": "job-genie-chrome-extension",
+  "version": "1.0.0",
+  "description": "Analyze job descriptions against your resume using AI. Get match %, strengths, gaps, and interview questions instantly.",
+  "main": "popup.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo \"Extension built successfully\"",
+    "dev": "echo \"Extension ready for development\""
+  },
+  "keywords": [
+    "chrome-extension",
+    "job-analysis",
+    "ai",
+    "gemini",
+    "resume",
+    "job-description",
+    "career"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RoyRushreeta/jobgenie-chrome-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RoyRushreeta/jobgenie-chrome-extension/issues"
+  },
+  "homepage": "https://github.com/RoyRushreeta/jobgenie-chrome-extension#readme"
+}
